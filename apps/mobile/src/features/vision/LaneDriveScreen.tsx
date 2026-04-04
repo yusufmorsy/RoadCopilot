@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { agentDebugLog } from "../../debug/agentDebugLog";
 import {
   logRoadCopilotVision,
   serializeUnknownError,
@@ -206,6 +207,28 @@ export function LaneDriveScreen({
     permission?.granted === true && visionReady && pictureSizeProbeDone;
 
   useEffect(() => {
+    agentDebugLog(
+      "LaneDriveScreen.tsx:permission_effect",
+      "permission_snapshot",
+      "H1",
+      {
+        permissionIsNull: permission == null,
+        granted: permission?.granted ?? null,
+        status:
+          permission && typeof permission === "object" && "status" in permission
+            ? String((permission as { status?: string }).status)
+            : null,
+        canAskAgain:
+          permission &&
+          typeof permission === "object" &&
+          "canAskAgain" in permission
+            ? Boolean((permission as { canAskAgain?: boolean }).canAskAgain)
+            : null,
+      }
+    );
+  }, [permission]);
+
+  useEffect(() => {
     logRoadCopilotVision("lane_drive_capture_gates", {
       visionUrlConfigured: visionReady,
       visionBasePreview: getVisionApiBaseUrl()?.slice(0, 36) ?? null,
@@ -224,6 +247,12 @@ export function LaneDriveScreen({
   ]);
 
   const handleCameraReady = useCallback(() => {
+    agentDebugLog(
+      "LaneDriveScreen.tsx:handleCameraReady",
+      "onCameraReady_fired",
+      "H3",
+      { compact, platform: Platform.OS }
+    );
     setCameraReady(true);
     setPictureSizeProbeDone(false);
     if (pictureProbeFinishTimerRef.current !== null) {
@@ -410,7 +439,40 @@ export function LaneDriveScreen({
         </Text>
         <Pressable
           style={styles.primaryButton}
-          onPress={() => void requestPermission()}
+          onPress={() => {
+            void (async () => {
+              agentDebugLog(
+                "LaneDriveScreen.tsx:requestPermission",
+                "before_requestPermission",
+                "H1",
+                {}
+              );
+              try {
+                const result = await requestPermission();
+                agentDebugLog(
+                  "LaneDriveScreen.tsx:requestPermission",
+                  "after_requestPermission",
+                  "H1",
+                  {
+                    granted: result?.granted ?? null,
+                    status:
+                      result &&
+                      typeof result === "object" &&
+                      "status" in result
+                        ? String((result as { status?: string }).status)
+                        : null,
+                  }
+                );
+              } catch (e) {
+                agentDebugLog(
+                  "LaneDriveScreen.tsx:requestPermission",
+                  "requestPermission_threw",
+                  "H1",
+                  serializeUnknownError(e)
+                );
+              }
+            })();
+          }}
           accessibilityRole="button"
           accessibilityLabel="Allow camera access"
         >
@@ -427,6 +489,12 @@ export function LaneDriveScreen({
         collapsable={Platform.OS === "android" ? false : undefined}
         onLayout={(e) => {
           const { width, height } = e.nativeEvent.layout;
+          agentDebugLog(
+            "LaneDriveScreen.tsx:camera_onLayout",
+            "camera_container_layout",
+            "H4",
+            { width, height, compact }
+          );
           setCameraLayout({ width, height });
         }}
       >
@@ -438,6 +506,12 @@ export function LaneDriveScreen({
           {...(pictureSize ? { pictureSize } : {})}
           onCameraReady={handleCameraReady}
           onMountError={(event) => {
+            agentDebugLog(
+              "LaneDriveScreen.tsx:onMountError",
+              "camera_mount_error",
+              "H2",
+              { message: event.message?.slice(0, 220) ?? null }
+            );
             logRoadCopilotVision("lane_camera_mount_error", {
               message: event.message?.slice(0, 400),
             });
