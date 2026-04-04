@@ -69,5 +69,18 @@ done
 # if this point was reached, everything should be good
 
 # uvicorn from venv, bind all interfaces so a phone can reach the Mac:
-#   cd services/vision-api && ../.venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# cd services/vision-api && .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
 # cd apps/mobile && npx expo start --tunnel -c
+
+# version of commands
+# intentionally not called
+cmds_as_reference () {
+    # assuming you're on top directory of repo
+    # make sure to run 'pip install -r services/vision-api/requirements.txt'
+    # otherwise modules like cv2 can be missing
+    cd services/vision-api && .venv/bin/uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    # make sure to run 'npm install'
+    # otherwise random dependencies can be missing
+    cd ../../
+    cd apps/mobile && npx expo start --tunnel -c
+}
