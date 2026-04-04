@@ -7,6 +7,8 @@ export interface TripSessionState {
   isActive: boolean;
   /** Display label until routing integration supplies a real mode. */
   routeModeLabel: string | null;
+  /** Destination chosen during planning (for family summary). */
+  destinationLabel: string | null;
   routeOptionId: string | undefined;
   /** Filled by lane vision integration later; adjustable for demos. */
   laneDriftCount: number;
@@ -22,6 +24,7 @@ export const initialTripSessionState: TripSessionState = {
   endedAt: null,
   isActive: false,
   routeModeLabel: null,
+  destinationLabel: null,
   routeOptionId: undefined,
   laneDriftCount: 0,
   hardBrakeCount: 0,
@@ -31,7 +34,12 @@ export const initialTripSessionState: TripSessionState = {
 };
 
 export type TripSessionAction =
-  | { type: "START_TRIP"; routeModeLabel?: string | null; routeOptionId?: string }
+  | {
+      type: "START_TRIP";
+      routeModeLabel?: string | null;
+      routeOptionId?: string;
+      destinationLabel?: string | null;
+    }
   | { type: "END_TRIP" }
   | { type: "RESET_TRIP" }
   | { type: "ADD_TRIP_EVENT"; event: TripEvent }

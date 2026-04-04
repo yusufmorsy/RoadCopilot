@@ -30,12 +30,7 @@ export interface GoogleRoadsClient {
   fetchSpeedLimitsAlongRoute(path: LatLng[]): Promise<SpeedLimitsAlongRouteResult>;
 }
 
-export function getGoogleRoadsApiKeyFromEnv(): string | undefined {
-  // Same key often works for Roads; allow override if you split keys later.
-  const k =
-    process.env.EXPO_PUBLIC_GOOGLE_ROADS_API_KEY ?? process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  return typeof k === "string" && k.trim().length > 0 ? k.trim() : undefined;
-}
+export { getGoogleRoadsApiKeyFromEnv } from "../config/expoPublicEnv";
 
 /**
  * Stub: returns empty segments. Replace body with Roads REST calls when ready.

@@ -3,8 +3,11 @@ import type {
   AnalyzeFrameResponse,
 } from "@roadcopilot/contracts";
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:8000";
+import { getVisionApiBaseUrl } from "../config/expoPublicEnv";
+
 const DEFAULT_TIMEOUT_MS = 12_000;
+
+export { getVisionApiBaseUrl, isVisionApiConfigured } from "../config/expoPublicEnv";
 
 export type AnalyzeFrameOutcome =
   | { ok: true; data: AnalyzeFrameResponse }
@@ -13,18 +16,6 @@ export type AnalyzeFrameOutcome =
       kind: "network" | "timeout" | "http" | "parse" | "validation";
       message: string;
     };
-
-/**
- * Vision API base URL (no trailing slash).
- * Set `EXPO_PUBLIC_VISION_API_URL` in `.env` or `app.config` extra.
- */
-export function getVisionApiBaseUrl(): string {
-  const raw = process.env.EXPO_PUBLIC_VISION_API_URL;
-  if (typeof raw === "string" && raw.trim().length > 0) {
-    return raw.replace(/\/+$/, "");
-  }
-  return DEFAULT_BASE_URL;
-}
 
 function isRecord(x: unknown): x is Record<string, unknown> {
   return typeof x === "object" && x !== null && !Array.isArray(x);
@@ -86,6 +77,14 @@ export async function analyzeFrame(
   options?: AnalyzeFrameOptions
 ): Promise<AnalyzeFrameOutcome> {
   const baseUrl = getVisionApiBaseUrl();
+  if (!baseUrl) {
+    return {
+      ok: false,
+      kind: "validation",
+      message:
+        "Vision API URL is not set. Add EXPO_PUBLIC_VISION_API_URL to apps/mobile/.env (see .env.example).",
+    };
+  }
   const url = `${baseUrl}/analyze-frame`;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 

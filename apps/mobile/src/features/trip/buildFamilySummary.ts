@@ -33,6 +33,8 @@ export interface FamilySummaryExtras {
   narrativeLine: string;
   tripDurationLabel: string;
   timeline: FamilySummaryTimelineItem[];
+  /** From trip planning; shown when present. */
+  destinationLabel: string | null;
 }
 
 function formatDurationMs(ms: number): string {
@@ -246,6 +248,7 @@ export function buildFamilySummaryView(
     narrativeLine,
     tripDurationLabel: durationLabel,
     timeline: timelineFromEvents(session.events),
+    destinationLabel: session.destinationLabel,
   };
 
   return { summary, extras };

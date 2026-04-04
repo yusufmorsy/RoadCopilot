@@ -45,6 +45,9 @@ export default function FamilySummaryScreen({
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Trip overview</Text>
         <Row label="Duration" value={extras.tripDurationLabel} />
+        {extras.destinationLabel ? (
+          <Row label="Destination" value={extras.destinationLabel} />
+        ) : null}
         <Row
           label="Route mode"
           value={routeModeLabel ?? "Not connected yet"}
@@ -74,7 +77,7 @@ export default function FamilySummaryScreen({
           value={String(
             summary.eventRollups.find((r) => r.type === "lane_drift_advisory")?.count ?? 0
           )}
-          hint="Placeholder until drive coaching connects."
+          hint="Advisory cues from lane awareness during the trip — not a judgment."
         />
       </View>
 
@@ -109,7 +112,7 @@ export default function FamilySummaryScreen({
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Event timeline</Text>
         {extras.timeline.length === 0 ? (
-          <Text style={styles.bodyMuted}>No motion events logged on this trip.</Text>
+          <Text style={styles.bodyMuted}>No moments were logged on this trip.</Text>
         ) : (
           extras.timeline.map((item, idx) => (
             <View key={`${item.occurredAt}-${idx}`} style={styles.timelineRow}>

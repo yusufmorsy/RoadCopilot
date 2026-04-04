@@ -18,6 +18,7 @@ export function tripSessionReducer(
         startedAt: new Date().toISOString(),
         isActive: true,
         routeModeLabel: action.routeModeLabel ?? "Not connected yet",
+        destinationLabel: action.destinationLabel ?? null,
         routeOptionId: action.routeOptionId,
       };
     case "END_TRIP":

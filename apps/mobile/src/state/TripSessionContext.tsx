@@ -13,6 +13,7 @@ interface TripSessionContextValue {
   startTrip: (opts?: {
     routeModeLabel?: string | null;
     routeOptionId?: string;
+    destinationLabel?: string | null;
   }) => void;
   endTrip: () => void;
   resetTrip: () => void;
@@ -31,11 +32,16 @@ export function TripSessionProvider({
   const [state, dispatch] = useReducer(tripSessionReducer, initialTripSessionState);
 
   const startTrip = useCallback(
-    (opts?: { routeModeLabel?: string | null; routeOptionId?: string }) => {
+    (opts?: {
+      routeModeLabel?: string | null;
+      routeOptionId?: string;
+      destinationLabel?: string | null;
+    }) => {
       dispatch({
         type: "START_TRIP",
         routeModeLabel: opts?.routeModeLabel,
         routeOptionId: opts?.routeOptionId,
+        destinationLabel: opts?.destinationLabel,
       });
     },
     []

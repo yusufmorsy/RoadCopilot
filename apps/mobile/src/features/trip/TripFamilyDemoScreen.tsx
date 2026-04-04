@@ -36,7 +36,9 @@ export default function TripFamilyDemoScreen(): React.ReactElement {
 
   const onStart = () => {
     startTrip({
-      routeModeLabel: "Calm / fewer merges (placeholder)",
+      routeModeLabel: "Safer Route",
+      routeOptionId: "safer",
+      destinationLabel: "Demo destination",
     });
     setPhase("driving");
   };
@@ -120,7 +122,7 @@ export default function TripFamilyDemoScreen(): React.ReactElement {
             <Stat label="Hard braking" value={state.hardBrakeCount} />
             <Stat label="Rapid acceleration" value={state.rapidAccelerationCount} />
             <Stat label="Sharp swerves" value={state.sharpSwerveCount} />
-            <Stat label="Lane drift (placeholder)" value={state.laneDriftCount} />
+            <Stat label="Lane drift advisories" value={state.laneDriftCount} />
           </View>
           <Text style={styles.hint}>
             Sensors run only while a trip is active. Tune thresholds in{" "}

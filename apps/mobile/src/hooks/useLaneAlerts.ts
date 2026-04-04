@@ -11,18 +11,26 @@ const CONSECUTIVE_SAMPLES = 2;
 const SAME_PHRASE_COOLDOWN_MS = 10_000;
 const CROSS_PHRASE_COOLDOWN_MS = 5_000;
 
+export type UseLaneAlertsOptions = {
+  /** Fired when a drift advisory is about to be spoken (same gating as TTS). */
+  onDriftAdvisory?: (direction: "left" | "right") => void;
+};
+
 /**
  * Speaks short drift cues only on sustained drift, with cooldowns to avoid spam.
  * One-way TTS only — not a conversational assistant.
  */
 export function useLaneAlerts(
   status: LaneDisplayStatus,
-  enabled: boolean
+  enabled: boolean,
+  options?: UseLaneAlertsOptions
 ): void {
   const streakDirRef = useRef<LaneDisplayStatus | null>(null);
   const streakCountRef = useRef(0);
   const lastPhraseRef = useRef<string | null>(null);
   const lastSpokenAtRef = useRef(0);
+  const onDriftAdvisoryRef = useRef(options?.onDriftAdvisory);
+  onDriftAdvisoryRef.current = options?.onDriftAdvisory;
 
   useEffect(() => {
     return () => {
@@ -67,6 +75,10 @@ export function useLaneAlerts(
     if (phrase !== lastPhraseRef.current && sinceLast < CROSS_PHRASE_COOLDOWN_MS) {
       return;
     }
+
+    const direction: "left" | "right" =
+      status === "drifting_left" ? "left" : "right";
+    onDriftAdvisoryRef.current?.(direction);
 
     Speech.stop();
     Speech.speak(phrase, {

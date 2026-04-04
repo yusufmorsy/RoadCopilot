@@ -1,4 +1,4 @@
-import type { AnalyzeFrameResponse } from "@roadcopilot/contracts";
+import type { AnalyzeFrameResponse, TripEvent } from "@roadcopilot/contracts";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
@@ -11,8 +11,10 @@ import {
 
 import { useFrameCapture } from "../../hooks/useFrameCapture";
 import { useLaneAlerts } from "../../hooks/useLaneAlerts";
+import { newTripEventId } from "../sensors/newTripEventId";
 import {
   getVisionApiBaseUrl,
+  isVisionApiConfigured,
   type AnalyzeFrameOutcome,
 } from "../../services/visionClient";
 import { VisionStatusBar } from "./components/VisionStatusBar";
@@ -23,7 +25,24 @@ import {
 
 const FRAME_INTERVAL_MS = 650;
 
-export function LaneDriveScreen() {
+export type TripLaneLogBinding = {
+  isActive: boolean;
+  tripId: string | null;
+  addTripEvent: (event: TripEvent) => void;
+};
+
+export type LaneDriveScreenProps = {
+  /** When set, spoken drift advisories also append a {@link TripEvent} for the family timeline. */
+  tripLaneLog?: TripLaneLogBinding;
+  /** When false, drift voice cues are off (e.g. no active trip). Defaults to true. */
+  laneAdvisoryEnabled?: boolean;
+};
+
+export function LaneDriveScreen({
+  tripLaneLog,
+  laneAdvisoryEnabled = true,
+}: LaneDriveScreenProps = {}) {
+  const visionReady = isVisionApiConfigured();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraReady, setCameraReady] = useState(false);
@@ -38,7 +57,30 @@ export function LaneDriveScreen() {
     [latestResponse]
   );
 
-  useLaneAlerts(laneUi.status, permission?.granted === true && cameraReady);
+  const laneAlertsOn =
+    laneAdvisoryEnabled && permission?.granted === true && cameraReady;
+
+  const onDriftAdvisory = useCallback(
+    (direction: "left" | "right") => {
+      if (!tripLaneLog?.isActive || !tripLaneLog.tripId) return;
+      tripLaneLog.addTripEvent({
+        id: newTripEventId(),
+        tripId: tripLaneLog.tripId,
+        type: "lane_drift_advisory",
+        occurredAt: new Date().toISOString(),
+        severity: "low",
+        description:
+          direction === "left"
+            ? "Lane position eased a little left — a gentle centering cue."
+            : "Lane position eased a little right — a gentle centering cue.",
+      });
+    },
+    [tripLaneLog]
+  );
+
+  useLaneAlerts(laneUi.status, laneAlertsOn, {
+    onDriftAdvisory: tripLaneLog ? onDriftAdvisory : undefined,
+  });
 
   const captureFrame = useCallback(async () => {
     const cam = cameraRef.current;
@@ -70,7 +112,7 @@ export function LaneDriveScreen() {
   );
 
   useFrameCapture({
-    enabled: permission?.granted === true,
+    enabled: permission?.granted === true && visionReady,
     cameraReady,
     intervalMs: FRAME_INTERVAL_MS,
     captureFrame,
@@ -125,10 +167,18 @@ export function LaneDriveScreen() {
         <VisionStatusBar
           cameraLive={cameraReady}
           permissionGranted
-          backendOk={backendOk}
-          backendMessage={backendDetail}
-          inFlight={inFlight}
+          backendOk={visionReady && backendOk}
+          backendMessage={
+            visionReady ? backendDetail : "Set EXPO_PUBLIC_VISION_API_URL in apps/mobile/.env"
+          }
+          inFlight={visionReady && inFlight}
         />
+        {!visionReady ? (
+          <Text style={styles.configBanner}>
+            Lane analysis needs a vision server URL. Add EXPO_PUBLIC_VISION_API_URL to apps/mobile/.env
+            (see .env.example), then restart Expo.
+          </Text>
+        ) : null}
         <View style={styles.laneCard}>
           <Text style={styles.laneTitle}>Lane position</Text>
           <Text style={styles.laneValue} accessibilityLiveRegion="polite">
@@ -149,8 +199,8 @@ export function LaneDriveScreen() {
             <Text style={styles.advisory}>{latestResponse.advisory.message}</Text>
           ) : null}
         </View>
-        {__DEV__ ? (
-          <Text style={styles.hint}>Dev server: {getVisionApiBaseUrl()}</Text>
+        {__DEV__ && visionReady ? (
+          <Text style={styles.hint}>Vision API: {getVisionApiBaseUrl()}</Text>
         ) : null}
       </View>
     </View>
@@ -213,6 +263,17 @@ const styles = StyleSheet.create({
     color: "#fff9c4",
     fontSize: 18,
     lineHeight: 26,
+  },
+  configBanner: {
+    backgroundColor: "rgba(80, 50, 0, 0.92)",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    color: "#fff3e0",
+    fontSize: 16,
+    lineHeight: 24,
+    borderWidth: 1,
+    borderColor: "#ffb74d",
   },
   hint: {
     marginTop: 12,

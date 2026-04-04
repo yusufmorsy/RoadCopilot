@@ -105,10 +105,7 @@ function parseRouteFromResponse(
   };
 }
 
-export function getGoogleMapsApiKeyFromEnv(): string | undefined {
-  const k = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
-  return typeof k === "string" && k.trim().length > 0 ? k.trim() : undefined;
-}
+export { getGoogleMapsApiKeyFromEnv } from "../config/expoPublicEnv";
 
 export async function geocodeAddress(
   apiKey: string,

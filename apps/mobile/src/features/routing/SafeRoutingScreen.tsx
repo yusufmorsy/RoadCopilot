@@ -15,6 +15,7 @@ import { useNavigationTrip } from "../navigation/NavigationTripContext";
 import type { RouteModeId } from "../navigation/types";
 import { planRouteOptionsFromDestinationText, type PlannedRoutesResult } from "./planRouteOptions";
 import { RouteOptionCard } from "./RouteOptionCard";
+import { getPlanFallbackOrigin } from "../../config/expoPublicEnv";
 import type { LatLng } from "../../services/googleRoutesClient";
 import { getGoogleMapsApiKeyFromEnv } from "../../services/googleRoutesClient";
 import { createStubGoogleRoadsClient } from "../../services/googleRoadsClient";
@@ -22,7 +23,11 @@ import { createStubGoogleRoadsClient } from "../../services/googleRoadsClient";
 async function resolveOriginLatLng(): Promise<LatLng> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
-    return { latitude: 37.7749, longitude: -122.4194 };
+    const fallback = getPlanFallbackOrigin();
+    if (fallback) return fallback;
+    throw new Error(
+      "Location is off. Allow location for this app, or set EXPO_PUBLIC_FALLBACK_ORIGIN_LAT and EXPO_PUBLIC_FALLBACK_ORIGIN_LNG in apps/mobile/.env (see .env.example)."
+    );
   }
   const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
   return { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
@@ -32,7 +37,11 @@ function routeModeFromOption(option: RouteOption): RouteModeId {
   return option.id === "fastest" ? "fastest" : "safer";
 }
 
-export function SafeRoutingScreen() {
+export type SafeRoutingScreenProps = {
+  onContinueToDrive?: () => void;
+};
+
+export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps = {}) {
   const { trip, setTrip, clearTrip } = useNavigationTrip();
   const [destination, setDestination] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,8 +114,9 @@ export function SafeRoutingScreen() {
 
       {!hasKey ? (
         <Text style={styles.banner}>
-          Demo mode: add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to use live Google Routes and Geocoding. Until
-          then, sample fastest vs safer options illustrate the flow.
+          Demo mode: add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to apps/mobile/.env (copy from .env.example)
+          for live Google Routes and Geocoding. Until then, sample fastest vs safer options illustrate
+          the flow.
         </Text>
       ) : null}
 
@@ -169,9 +179,19 @@ export function SafeRoutingScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ready for the next step</Text>
           <Text style={styles.summaryText}>
-            Saved: {trip.selectedRoute.label} to {trip.destinationLabel}. Trip recording or turn-by-turn
-            can plug into this summary when those flows are wired.
+            Saved: {trip.selectedRoute.label} toward {trip.destinationLabel}. Open the Drive tab when you
+            are ready to start a trip — lane and motion awareness stay advisory only.
           </Text>
+          {onContinueToDrive ? (
+            <TouchableOpacity
+              style={[styles.primaryButton, styles.continueDrive]}
+              onPress={onContinueToDrive}
+              accessibilityRole="button"
+              accessibilityLabel="Continue to drive tab"
+            >
+              <Text style={styles.primaryButtonText}>Continue to drive</Text>
+            </TouchableOpacity>
+          ) : null}
           <Text style={styles.mono}>
             mode={trip.selectedRouteMode} · polyline ({trip.selectedRoute.geometry.format}) length{" "}
             {trip.selectedRoute.geometry.data.length}
@@ -182,11 +202,11 @@ export function SafeRoutingScreen() {
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.placeholderTitle}>Next integration</Text>
+          <Text style={styles.placeholderTitle}>How it fits together</Text>
           <Text style={styles.placeholderBody}>
-            When trip start is connected, pass `NavigationReadyTripState` (destination, mode, selected
-            `RouteOption`) into the drive session. Speed limits: use `googleRoadsClient` to snap the path
-            and query limits before comparing to GPS speed — advisory wording only.
+            After you pick a route, the Drive tab starts your trip, reads lane position when the camera
+            can see the road, and logs gentle motion highlights on this phone. The Summary tab offers a
+            supportive snapshot for family — never a scoreboard.
           </Text>
         </View>
       )}
@@ -251,6 +271,9 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 17,
     fontWeight: "600",
+  },
+  continueDrive: {
+    marginTop: 12,
   },
   section: {
     marginTop: 28,

@@ -26,6 +26,10 @@ function nowMs(): number {
   return Date.now();
 }
 
+function isMotionCooldownKey(k: string): k is keyof typeof EVENT_COOLDOWN_MS {
+  return Object.prototype.hasOwnProperty.call(EVENT_COOLDOWN_MS, k);
+}
+
 export function useMotionSensorLoop({
   isActive,
   tripId,
@@ -77,6 +81,7 @@ export function useMotionSensorLoop({
       const detected = detectLongitudinalManeuver(motionStateRef.current, linear);
       if (!detected) return;
       const key = detected.type;
+      if (!isMotionCooldownKey(key)) return;
       const last = cooldownRef.current[key] ?? 0;
       if (t - last < EVENT_COOLDOWN_MS[key]) return;
       cooldownRef.current[key] = t;
