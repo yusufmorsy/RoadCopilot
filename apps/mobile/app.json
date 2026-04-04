@@ -5,12 +5,17 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.roadcopilot.app",
       "infoPlist": {
-        "NSMotionUsageDescription": "RoadCopilot uses motion sensors on this phone to notice firmer slowdowns, quicker accelerations, and sharper turns during a trip — only to build a calm, on-device summary for family. It does not control the vehicle."
+        "NSMotionUsageDescription": "RoadCopilot uses motion sensors on this phone to notice firmer slowdowns, quicker accelerations, and sharper turns during a trip — only to build a calm, on-device summary for family. It does not control the vehicle.",
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
@@ -27,6 +32,14 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "RoadCopilot uses your location to plan driving routes starting from where you are."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],

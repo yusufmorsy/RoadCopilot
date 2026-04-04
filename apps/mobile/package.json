@@ -12,13 +12,15 @@
     "@roadcopilot/contracts": "*",
     "babel-preset-expo": "~54.0.10",
     "expo": "~54.0.33",
+    "expo-build-properties": "~1.0.10",
     "expo-camera": "~17.0.10",
     "expo-location": "~19.0.8",
     "expo-sensors": "~15.0.8",
     "expo-speech": "~14.0.8",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
-    "react-native": "0.81.5"
+    "react-native": "0.81.5",
+    "react-native-maps": "1.20.1"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

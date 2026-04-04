@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+import { RouteComparisonMap } from "./maps/RouteComparisonMap";
 import { useNavigationTrip } from "../navigation/NavigationTripContext";
 import type { RouteModeId } from "../navigation/types";
 import { planRouteOptionsFromDestinationText, type PlannedRoutesResult } from "./planRouteOptions";
@@ -85,6 +87,13 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
     const fastest = planned.options.find((o) => o.id === "fastest");
     const safer = planned.options.find((o) => o.id === "safer");
 
+    const guidanceSteps =
+      selected.id === "fastest"
+        ? planned.guidanceByOptionId.fastest
+        : selected.id === "safer"
+          ? planned.guidanceByOptionId.safer
+          : [];
+
     setTrip({
       destinationLabel: planned.formattedDestination,
       destinationLatLng: planned.destinationLatLng,
@@ -92,6 +101,7 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
       selectedRouteMode: routeModeFromOption(selected),
       selectedRoute: selected,
       plannedAtIso: new Date().toISOString(),
+      guidanceSteps,
       routeSummary: {
         fastestDurationSeconds: fastest?.durationSecondsEstimate,
         saferDurationSeconds: safer?.durationSecondsEstimate,
@@ -105,6 +115,7 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
   }, [origin, planned, selectedId, setTrip]);
 
   return (
+    <View style={styles.screenRoot}>
     <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Safe routing</Text>
       <Text style={styles.lede}>
@@ -155,6 +166,14 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
             {" · "}
             {planned.formattedDestination}
           </Text>
+          {origin ? (
+            <RouteComparisonMap
+              origin={origin}
+              destination={planned.destinationLatLng}
+              options={planned.options}
+              selectedId={selectedId}
+            />
+          ) : null}
           {planned.options.map((opt) => (
             <RouteOptionCard
               key={opt.id}
@@ -211,10 +230,15 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
         </View>
       )}
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screenRoot: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
   scroll: {
     padding: 20,
     paddingBottom: 40,

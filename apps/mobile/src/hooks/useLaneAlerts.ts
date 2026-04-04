@@ -1,6 +1,6 @@
-import * as Speech from "expo-speech";
 import { useEffect, useRef } from "react";
 
+import { speakLane, stopAdvisorySpeech } from "../features/voice/advisorySpeech";
 import type { LaneDisplayStatus } from "../features/vision/laneStatus";
 import {
   LANE_ALERT_DRIFT_LEFT,
@@ -34,13 +34,13 @@ export function useLaneAlerts(
 
   useEffect(() => {
     return () => {
-      Speech.stop();
+      stopAdvisorySpeech();
     };
   }, []);
 
   useEffect(() => {
     if (!enabled) {
-      Speech.stop();
+      stopAdvisorySpeech();
       streakDirRef.current = null;
       streakCountRef.current = 0;
       return;
@@ -80,11 +80,7 @@ export function useLaneAlerts(
       status === "drifting_left" ? "left" : "right";
     onDriftAdvisoryRef.current?.(direction);
 
-    Speech.stop();
-    Speech.speak(phrase, {
-      rate: 0.92,
-      pitch: 1,
-    });
+    speakLane(phrase);
     lastPhraseRef.current = phrase;
     lastSpokenAtRef.current = now;
   }, [status, enabled]);

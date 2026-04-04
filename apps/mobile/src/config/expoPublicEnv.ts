@@ -26,11 +26,30 @@ export function getGoogleRoadsApiKeyFromEnv(): string | undefined {
 
 export function getVisionApiBaseUrl(): string | undefined {
   const raw = readTrimmed("EXPO_PUBLIC_VISION_API_URL");
-  return raw ? raw.replace(/\/+$/, "") : undefined;
+  if (!raw) return undefined;
+  let u = raw.replace(/\/+$/, "");
+  // Common mistake: pasting the full endpoint; mobile app appends /analyze-frame.
+  u = u.replace(/\/analyze-frame\/?$/i, "");
+  return u;
 }
 
 export function isVisionApiConfigured(): boolean {
   return getVisionApiBaseUrl() !== undefined;
+}
+
+/**
+ * Max time to wait for POST /analyze-frame (upload + response). Lower = faster failure when the
+ * server is unreachable; raise on slow networks via EXPO_PUBLIC_VISION_ANALYZE_TIMEOUT_MS.
+ */
+export function getVisionAnalyzeTimeoutMs(): number {
+  const raw = readTrimmed("EXPO_PUBLIC_VISION_ANALYZE_TIMEOUT_MS");
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n)) {
+      return Math.min(120_000, Math.max(8_000, Math.round(n)));
+    }
+  }
+  return 18_000;
 }
 
 /**

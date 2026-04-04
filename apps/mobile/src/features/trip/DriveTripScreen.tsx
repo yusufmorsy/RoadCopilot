@@ -1,5 +1,5 @@
 import { Accelerometer } from "expo-sensors";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -7,15 +7,21 @@ import {
   View,
 } from "react-native";
 
+import { useRouteGuidanceVoice } from "../../hooks/useRouteGuidanceVoice";
 import { useTripSession } from "../../hooks/useTripSession";
+import { ActiveRouteMap } from "../routing/maps/ActiveRouteMap";
+import type { LaneDisplayStatus } from "../vision/laneStatus";
 import { LaneDriveScreen } from "../vision/LaneDriveScreen";
 import { useNavigationTrip } from "../navigation/NavigationTripContext";
+import type { RouteGuidanceStep } from "../navigation/types";
 import { useMotionSensorLoop } from "../sensors/useMotionSensorLoop";
 
 export type DriveTripScreenProps = {
   onGoToPlan: () => void;
   onTripEnded: () => void;
 };
+
+const EMPTY_GUIDANCE: RouteGuidanceStep[] = [];
 
 export function DriveTripScreen({
   onGoToPlan,
@@ -24,6 +30,22 @@ export function DriveTripScreen({
   const { trip: navTrip } = useNavigationTrip();
   const { state, startTrip, endTrip, resetTrip, addTripEvent } = useTripSession();
   const [motionOk, setMotionOk] = useState<boolean | null>(null);
+  const laneDriftRef = useRef(false);
+
+  const onLaneStatusForVoice = useCallback((s: LaneDisplayStatus) => {
+    laneDriftRef.current = s === "drifting_left" || s === "drifting_right";
+  }, []);
+
+  useRouteGuidanceVoice({
+    enabled: Boolean(state.isActive && navTrip),
+    sessionKey: state.isActive ? state.tripId : null,
+    guidanceSteps: navTrip?.guidanceSteps ?? EMPTY_GUIDANCE,
+    destinationLatLng:
+      navTrip?.destinationLatLng ?? { latitude: 0, longitude: 0 },
+    isLaneDrifting: () => laneDriftRef.current,
+    destinationLabel: navTrip?.destinationLabel,
+    durationSecondsEstimate: navTrip?.selectedRoute.durationSecondsEstimate,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -180,15 +202,26 @@ export function DriveTripScreen({
   }
 
   return (
-    <View style={styles.root}>
-      <LaneDriveScreen
-        tripLaneLog={{
-          isActive: state.isActive,
-          tripId: state.tripId,
-          addTripEvent,
-        }}
-        laneAdvisoryEnabled={state.isActive}
-      />
+    <View style={styles.tripRoot}>
+      <View style={styles.mapPane}>
+        <ActiveRouteMap
+          origin={navTrip.originLatLng}
+          destination={navTrip.destinationLatLng}
+          selectedRoute={navTrip.selectedRoute}
+        />
+      </View>
+      <View style={styles.lanePane}>
+        <LaneDriveScreen
+          layout="compact"
+          onLaneStatusChange={onLaneStatusForVoice}
+          tripLaneLog={{
+            isActive: state.isActive,
+            tripId: state.tripId,
+            addTripEvent,
+          }}
+          laneAdvisoryEnabled={state.isActive}
+        />
+      </View>
       <View style={styles.topBar} pointerEvents="box-none">
         <View style={styles.topCard}>
           <Text style={styles.topDest} numberOfLines={1}>
@@ -212,7 +245,16 @@ export function DriveTripScreen({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000" },
+  tripRoot: { flex: 1, backgroundColor: "#0f172a" },
+  mapPane: { flex: 1, minHeight: 200 },
+  lanePane: {
+    flexShrink: 0,
+    maxHeight: 300,
+    backgroundColor: "#000",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: "hidden",
+  },
   panel: {
     flex: 1,
     backgroundColor: "#f6f7f8",

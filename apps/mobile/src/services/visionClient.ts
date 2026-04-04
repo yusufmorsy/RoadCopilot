@@ -3,11 +3,14 @@ import type {
   AnalyzeFrameResponse,
 } from "@roadcopilot/contracts";
 
-import { getVisionApiBaseUrl } from "../config/expoPublicEnv";
+import { getVisionAnalyzeTimeoutMs, getVisionApiBaseUrl } from "../config/expoPublicEnv";
+import { logRoadCopilotVision } from "../debug/visionCaptureDiagnostics";
 
-const DEFAULT_TIMEOUT_MS = 12_000;
-
-export { getVisionApiBaseUrl, isVisionApiConfigured } from "../config/expoPublicEnv";
+export {
+  getVisionApiBaseUrl,
+  getVisionAnalyzeTimeoutMs,
+  isVisionApiConfigured,
+} from "../config/expoPublicEnv";
 
 export type AnalyzeFrameOutcome =
   | { ok: true; data: AnalyzeFrameResponse }
@@ -86,7 +89,7 @@ export async function analyzeFrame(
     };
   }
   const url = `${baseUrl}/analyze-frame`;
-  const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timeoutMs = options?.timeoutMs ?? getVisionAnalyzeTimeoutMs();
 
   const controller = new AbortController();
   const onAbort = () => controller.abort();
@@ -94,11 +97,34 @@ export async function analyzeFrame(
 
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  let payload: string;
+  try {
+    payload = JSON.stringify(body);
+  } catch {
+    clearTimeout(timer);
+    options?.signal?.removeEventListener("abort", onAbort);
+    return {
+      ok: false,
+      kind: "validation",
+      message:
+        "This photo was too large to send as one request. The app will keep trying with the next frame.",
+    };
+  }
+
+  if (__DEV__) {
+    logRoadCopilotVision("lane_vision_analyze_fetch_start", {
+      path: "/analyze-frame",
+      timeoutMs,
+      payloadChars: payload.length,
+      requestId: body.requestId,
+    });
+  }
+
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify(body),
+      body: payload,
       signal: controller.signal,
     });
 
@@ -153,13 +179,15 @@ export async function analyzeFrame(
       return {
         ok: false,
         kind: "timeout",
-        message: "The analysis service took too long or was stopped.",
+        message:
+          `No response within ${Math.round(timeoutMs / 1000)}s — the phone may not reach your Mac on this network, or the vision server is down. Check Wi‑Fi and uvicorn. You can raise EXPO_PUBLIC_VISION_ANALYZE_TIMEOUT_MS in .env if uploads are legitimately slow.`,
       };
     }
     return {
       ok: false,
       kind: "network",
-      message: "We could not reach the analysis service. Check your connection and server address.",
+      message:
+        "Could not reach the vision server. On a real device use your computer's Wi‑Fi IP (not localhost), start the API with --host 0.0.0.0, same Wi‑Fi. Android emulator: http://10.0.2.2:8000",
     };
   } finally {
     clearTimeout(timer);

@@ -21,6 +21,12 @@ export interface GoogleRoutesClientConfig {
 export type ParsedRouteStep = {
   distanceMeters?: number;
   maneuver?: string;
+  /** Human-readable step text from Routes API when present. */
+  instructions?: string;
+  /** Encoded polyline for this step only. */
+  encodedPolyline?: string;
+  /** Step end; used to trigger the next spoken hint. */
+  endLatLng?: LatLng;
 };
 
 /** Internal shape for heuristic scoring — not a contracts duplicate. */
@@ -36,10 +42,13 @@ export type ParsedGoogleRoute = {
 function parseDurationSeconds(duration: unknown): number {
   if (duration == null) return 0;
   if (typeof duration === "string") {
-    const m = duration.match(/^(\d+)s$/);
-    if (m) return Number(m[1]);
+    const m = duration.match(/^([\d.]+)s$/);
+    if (m) {
+      const n = Number(m[1]);
+      return Number.isFinite(n) ? Math.round(n) : 0;
+    }
     const n = Number(duration.replace(/s$/, ""));
-    return Number.isFinite(n) ? n : 0;
+    return Number.isFinite(n) ? Math.round(n) : 0;
   }
   if (typeof duration === "object" && duration !== null && "seconds" in duration) {
     const s = (duration as { seconds?: string | number }).seconds;
@@ -52,6 +61,16 @@ function waypointFromLatLng(latLng: LatLng) {
   return { location: { latLng: { latitude: latLng.latitude, longitude: latLng.longitude } } };
 }
 
+function latLngFromRoutesLocation(loc: unknown): LatLng | undefined {
+  if (!loc || typeof loc !== "object") return undefined;
+  const o = loc as Record<string, unknown>;
+  const ll = o.latLng as Record<string, unknown> | undefined;
+  if (ll && typeof ll.latitude === "number" && typeof ll.longitude === "number") {
+    return { latitude: ll.latitude, longitude: ll.longitude };
+  }
+  return undefined;
+}
+
 async function postComputeRoutes(
   apiKey: string,
   body: Record<string, unknown>
@@ -62,7 +81,15 @@ async function postComputeRoutes(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask":
-        "routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline,routes.legs.steps.distanceMeters,routes.legs.steps.navigationInstruction",
+        [
+          "routes.duration",
+          "routes.distanceMeters",
+          "routes.polyline.encodedPolyline",
+          "routes.legs.steps.distanceMeters",
+          "routes.legs.steps.navigationInstruction",
+          "routes.legs.steps.polyline.encodedPolyline",
+          "routes.legs.steps.endLocation",
+        ].join(","),
     },
     body: JSON.stringify(body),
   });
@@ -88,10 +115,17 @@ function parseRouteFromResponse(
   for (const leg of legs) {
     const legSteps = (leg.steps as Record<string, unknown>[] | undefined) ?? [];
     for (const step of legSteps) {
-      const ni = step.navigationInstruction as { maneuver?: string } | undefined;
+      const ni = step.navigationInstruction as
+        | { maneuver?: string; instructions?: string }
+        | undefined;
+      const stepPoly = step.polyline as { encodedPolyline?: string } | undefined;
+      const enc = stepPoly?.encodedPolyline?.trim();
       steps.push({
         distanceMeters: typeof step.distanceMeters === "number" ? step.distanceMeters : undefined,
         maneuver: ni?.maneuver,
+        instructions: typeof ni?.instructions === "string" ? ni.instructions : undefined,
+        encodedPolyline: enc || undefined,
+        endLatLng: latLngFromRoutesLocation(step.endLocation),
       });
     }
   }
@@ -128,18 +162,17 @@ export async function geocodeAddress(
   };
 }
 
-export async function computeDriveRoute(
-  apiKey: string,
+function buildComputeRoutesBody(
   origin: LatLng,
   destination: LatLng,
-  options: { avoidHighways: boolean }
-): Promise<ParsedGoogleRoute | null> {
-  const body: Record<string, unknown> = {
+  options: { avoidHighways: boolean; computeAlternativeRoutes: boolean }
+): Record<string, unknown> {
+  return {
     origin: waypointFromLatLng(origin),
     destination: waypointFromLatLng(destination),
     travelMode: "DRIVE",
     routingPreference: "TRAFFIC_AWARE",
-    computeAlternativeRoutes: false,
+    computeAlternativeRoutes: options.computeAlternativeRoutes,
     routeModifiers: {
       avoidHighways: options.avoidHighways,
       avoidTolls: false,
@@ -148,9 +181,36 @@ export async function computeDriveRoute(
     languageCode: "en-US",
     units: "IMPERIAL",
   };
+}
 
+/** One or more drive routes (up to three when `computeAlternativeRoutes` is true). */
+export async function computeDriveRoutes(
+  apiKey: string,
+  origin: LatLng,
+  destination: LatLng,
+  options: { avoidHighways: boolean; computeAlternativeRoutes: boolean }
+): Promise<ParsedGoogleRoute[]> {
+  const body = buildComputeRoutesBody(origin, destination, options);
   const json = (await postComputeRoutes(apiKey, body)) as { routes?: Record<string, unknown>[] };
-  const first = json.routes?.[0];
-  if (!first) return null;
-  return parseRouteFromResponse(first, options.avoidHighways);
+  const raw = json.routes ?? [];
+  const out: ParsedGoogleRoute[] = [];
+  for (const route of raw) {
+    if (!route || typeof route !== "object") continue;
+    const parsed = parseRouteFromResponse(route as Record<string, unknown>, options.avoidHighways);
+    if (parsed) out.push(parsed);
+  }
+  return out;
+}
+
+export async function computeDriveRoute(
+  apiKey: string,
+  origin: LatLng,
+  destination: LatLng,
+  options: { avoidHighways: boolean }
+): Promise<ParsedGoogleRoute | null> {
+  const routes = await computeDriveRoutes(apiKey, origin, destination, {
+    avoidHighways: options.avoidHighways,
+    computeAlternativeRoutes: false,
+  });
+  return routes[0] ?? null;
 }
