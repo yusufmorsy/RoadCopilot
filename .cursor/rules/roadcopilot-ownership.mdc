@@ -1,0 +1,21 @@
+---
+description: Repo ownership boundaries — edit only your area unless told
+alwaysApply: true
+---
+
+# Ownership boundaries
+
+Agents must **not** modify files outside their assigned ownership unless the user or planner **explicitly** asks for a cross-cutting integration change.
+
+| Own | Path |
+|-----|------|
+| Mobile | `apps/mobile/**` |
+| Vision API | `services/vision-api/**` |
+| Contracts | `packages/contracts/**` |
+| Docs / meta | `docs/**`, `TASKS.md`, root `README.md`, `.cursor/rules/**` |
+
+**Allowed cross-touch examples (only when instructed):** bump `@roadcopilot/contracts` import paths, add a shared env example line, fix a broken workspace reference.
+
+**Not allowed:** rewriting another app’s business logic “while you’re here,” or moving files between owners without instruction.
+
+When a feature needs another area, **describe the contract** (types, endpoint, behavior) and hand off instead of editing their tree silently.

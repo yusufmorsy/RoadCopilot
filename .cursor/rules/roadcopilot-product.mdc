@@ -1,0 +1,29 @@
+---
+description: Advisory-only MVP, required features, elder-focused tone
+alwaysApply: true
+---
+
+# RoadCopilot product rules
+
+## Advisory only
+
+RoadCopilot is **advisory**. It must **not** control the vehicle, automate steering/braking, or imply autonomy. UI and TTS must avoid commands that sound like takeover (“steer now”, “brake hard”). Prefer gentle guidance (“Easy hands”, “A little more centered when you can”).
+
+## Required MVP surfaces
+
+Shipping MVP must include:
+
+1. **Safe routing before the drive** — multiple `RouteOption` values with calm rationales.
+2. **Lane drift detection** with spoken alerts during the drive (live and/or replay path).
+3. **Phone sensor detection** for hard braking, rapid acceleration, sharp swerves (`TripEvent`).
+4. **Supportive post-trip family summary** (`FamilySummary`), non-punitive.
+
+If a change weakens any of the above, flag it and get explicit planner approval.
+
+## Tone
+
+Copy for drivers and families must be **elder-respecting, calm, and supportive**. Avoid shame, blame, or surveillance framing. Celebrate safe choices without infantilizing.
+
+## Lane detection technology
+
+MVP lane processing uses **classical computer vision (e.g. OpenCV)**. **Do not** introduce deep-learning lane models for MVP unless the planner explicitly changes this rule.

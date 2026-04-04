@@ -1,0 +1,21 @@
+---
+description: Shared contracts — single source of truth for API shapes
+globs: packages/contracts/**/*
+alwaysApply: false
+---
+
+# Contracts package rules
+
+## Source of truth
+
+`packages/contracts` defines the cross-team handshake:
+
+- `POST /analyze-frame` → `AnalyzeFrameRequest` / `AnalyzeFrameResponse`
+- `POST /analyze-video-replay` → `AnalyzeVideoReplayRequest` / `AnalyzeVideoReplayResponse`
+- `TripEvent`, `FamilySummary`, `RouteOption`
+
+Keep **TypeScript** (`src/`) and **JSON Schema** (`schemas/`) in sync when changing fields. Bump versions or add a short changelog note in commit messages when breaking compatibility.
+
+## Change process
+
+Contract changes should be **small and explicit**. If mobile and vision-api disagree, update contracts first, then file tasks for each owner to adopt—do not fork divergent types in app or server trees.

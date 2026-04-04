@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roadcopilot.local/schemas/trip-event.json",
+  "title": "TripEvent",
+  "type": "object",
+  "required": ["id", "tripId", "type", "occurredAt", "severity"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "tripId": { "type": "string" },
+    "type": {
+      "type": "string",
+      "enum": [
+        "hard_brake",
+        "rapid_acceleration",
+        "sharp_swerve",
+        "lane_drift_advisory",
+        "route_deviation_optional"
+      ]
+    },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "severity": { "type": "string", "enum": ["low", "medium", "high"] },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": { "type": "number" }
+    },
+    "description": { "type": "string" }
+  },
+  "additionalProperties": false
+}

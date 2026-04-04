@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roadcopilot.local/schemas/analyze-video-replay.request.json",
+  "title": "AnalyzeVideoReplayRequest",
+  "type": "object",
+  "required": ["requestId", "video"],
+  "properties": {
+    "requestId": { "type": "string" },
+    "video": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "uploadId"],
+          "properties": {
+            "kind": { "const": "uploadId" },
+            "uploadId": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "url"],
+          "properties": {
+            "kind": { "const": "url" },
+            "url": { "type": "string", "format": "uri" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "options": {
+      "type": "object",
+      "properties": {
+        "maxFrames": { "type": "integer", "minimum": 1 },
+        "frameStride": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

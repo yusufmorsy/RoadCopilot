@@ -1,0 +1,23 @@
+---
+description: Mobile app — frame API concurrency and integration
+globs: apps/mobile/**/*
+alwaysApply: false
+---
+
+# Mobile agent rules
+
+## Frame analysis concurrency
+
+Only **one** `POST /analyze-frame` request may be **in flight** at a time. Queue or drop frames coherently; never stack concurrent calls. Wait for response or terminal error before sending the next frame.
+
+## Contracts
+
+Import shared types from `@roadcopilot/contracts`. Do not duplicate `AnalyzeFrame*`, `TripEvent`, `RouteOption`, or `FamilySummary` shapes locally—extend the package if fields are missing (then coordinate with contracts owner).
+
+## Sensors
+
+Hard brake, rapid acceleration, and sharp swerve logic runs **on-device**. Keep thresholds tunable and log-friendly for demo tuning.
+
+## Replay / demo
+
+Support **replay/demo** using `POST /analyze-video-replay` when live camera is unavailable. Label the experience clearly so it is not mistaken for a live trip.

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roadcopilot.local/schemas/family-summary.json",
+  "title": "FamilySummary",
+  "type": "object",
+  "required": [
+    "tripId",
+    "startedAt",
+    "endedAt",
+    "headline",
+    "highlights",
+    "eventRollups"
+  ],
+  "properties": {
+    "tripId": { "type": "string" },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "endedAt": { "type": "string", "format": "date-time" },
+    "headline": { "type": "string" },
+    "highlights": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "eventRollups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "count", "supportivePhrase"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "hard_brake",
+              "rapid_acceleration",
+              "sharp_swerve",
+              "lane_drift_advisory",
+              "route_deviation_optional"
+            ]
+          },
+          "count": { "type": "integer", "minimum": 0 },
+          "supportivePhrase": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "routeOptionId": { "type": "string" },
+    "derivedFromReplay": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

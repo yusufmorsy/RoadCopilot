@@ -1,0 +1,24 @@
+---
+description: Vision API — OpenCV MVP, contract-aligned endpoints
+globs: services/vision-api/**/*
+alwaysApply: false
+---
+
+# Vision API agent rules
+
+## Implementation scope
+
+Implement lane-related processing with **OpenCV / classical CV** pipelines. **No deep learning** for lane detection in MVP.
+
+## API alignment
+
+`POST /analyze-frame` and `POST /analyze-video-replay` request/response bodies must match **`packages/contracts`** TypeScript types and JSON Schemas. Prefer Pydantic models generated or hand-maintained to match those fields.
+
+## Responsibilities
+
+- **Backend** owns frame decoding, batch/replay sampling, and returning `AnalyzeFrameResponse` / `AnalyzeVideoReplayResponse`.
+- **Mobile** owns sensor fusion and primary trip storage unless the planner adds a persistence service.
+
+## Advisory tone
+
+Server-generated `advisory.message` strings should follow the same **calm, supportive** product voice as the mobile app.

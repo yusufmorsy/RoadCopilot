@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roadcopilot.local/schemas/route-option.json",
+  "title": "RouteOption",
+  "type": "object",
+  "required": ["id", "label", "geometry", "safetyScore", "safetyLabel", "rationale"],
+  "properties": {
+    "id": { "type": "string" },
+    "label": { "type": "string" },
+    "geometry": {
+      "type": "object",
+      "required": ["format", "data"],
+      "properties": {
+        "format": { "type": "string", "enum": ["polyline", "coordinates"] },
+        "data": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "safetyScore": { "type": "number" },
+    "safetyLabel": {
+      "type": "string",
+      "enum": ["preferred", "acceptable", "use_caution"]
+    },
+    "rationale": { "type": "string" },
+    "durationSecondsEstimate": { "type": "number" },
+    "distanceMetersEstimate": { "type": "number" }
+  },
+  "additionalProperties": false
+}

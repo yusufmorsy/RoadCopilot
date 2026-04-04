@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roadcopilot.local/schemas/analyze-frame.request.json",
+  "title": "AnalyzeFrameRequest",
+  "type": "object",
+  "required": ["requestId", "image"],
+  "properties": {
+    "requestId": { "type": "string" },
+    "image": {
+      "type": "object",
+      "required": ["contentType", "dataBase64"],
+      "properties": {
+        "contentType": { "type": "string", "enum": ["image/jpeg", "image/png"] },
+        "dataBase64": { "type": "string", "contentEncoding": "base64" }
+      },
+      "additionalProperties": false
+    },
+    "captureMetadata": {
+      "type": "object",
+      "properties": {
+        "width": { "type": "integer" },
+        "height": { "type": "integer" },
+        "timestampUtc": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
