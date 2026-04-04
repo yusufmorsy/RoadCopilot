@@ -8,12 +8,28 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.roadcopilot.app"
+      "bundleIdentifier": "com.roadcopilot.app",
+      "infoPlist": {
+        "NSMotionUsageDescription": "RoadCopilot uses motion sensors on this phone to notice firmer slowdowns, quicker accelerations, and sharper turns during a trip — only to build a calm, on-device summary for family. It does not control the vehicle."
+      }
     },
     "android": {
       "package": "com.roadcopilot.app"
     },
-    "plugins": [],
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "RoadCopilot uses the camera to read lane position on the road ahead and help you stay comfortably centered. Video is not uploaded unless you choose to share it later."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RoadCopilot uses your location to plan driving routes starting from where you are."
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": false
     }

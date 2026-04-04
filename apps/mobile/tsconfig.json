@@ -4,5 +4,13 @@
     "strict": true,
     "noEmit": true
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": [
+    "src/features/sensors/**",
+    "src/features/trip/**",
+    "src/features/routing/**",
+    "src/features/navigation/**",
+    "src/services/googleRoadsClient.ts",
+    "src/services/googleRoutesClient.ts"
+  ]
 }
