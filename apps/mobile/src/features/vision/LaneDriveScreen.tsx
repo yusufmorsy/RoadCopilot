@@ -423,7 +423,8 @@ export function LaneDriveScreen({
   return (
     <View style={[styles.root, compact && styles.rootCompact]}>
       <View
-        style={[styles.camera, compact && styles.cameraCompact]}
+        style={compact ? styles.cameraStrip : styles.camera}
+        collapsable={Platform.OS === "android" ? false : undefined}
         onLayout={(e) => {
           const { width, height } = e.nativeEvent.layout;
           setCameraLayout({ width, height });
@@ -549,13 +550,19 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     overflow: "hidden",
   },
+  /** Fullscreen drive: fill under the semi-transparent HUD. */
   camera: {
     ...StyleSheet.absoluteFillObject,
   },
-  cameraCompact: {
+  /**
+   * Embedded strip under the map — must not merge with `absoluteFillObject` (left/top/right/bottom),
+   * or Android Yoga can resolve conflicting constraints and the preview never paints.
+   */
+  cameraStrip: {
     position: "relative",
-    height: 112,
     width: "100%",
+    height: 112,
+    overflow: "hidden",
   },
   overlay: {
     flex: 1,
