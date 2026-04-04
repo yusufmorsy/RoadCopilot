@@ -6,7 +6,11 @@ export type LaneDisplayStatus =
   | "drifting_right"
   | "unknown";
 
-const DEFAULT_OFFSET_THRESHOLD = 0.22;
+/**
+ * |offsetNorm| above this → drifting (below → "In lane"). Server normalizes roughly to ±1.
+ * Was 0.22 (very wide); smaller = more sensitive to slight left/right cues.
+ */
+const DEFAULT_OFFSET_THRESHOLD = 0.10;
 const MIN_CONFIDENCE = 0.35;
 
 export type LaneUiState = {
@@ -90,5 +94,19 @@ export function laneStatusLabel(status: LaneDisplayStatus): string {
       return "Drifting right";
     default:
       return "Unknown";
+  }
+}
+
+/** Short labels for the drive UI and logs (in lane / veering / not available). */
+export function laneStatusDriverLabel(status: LaneDisplayStatus): string {
+  switch (status) {
+    case "centered":
+      return "In lane";
+    case "drifting_left":
+      return "Veering left";
+    case "drifting_right":
+      return "Veering right";
+    default:
+      return "N/A";
   }
 }

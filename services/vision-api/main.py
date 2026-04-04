@@ -7,11 +7,14 @@ Lane MVP: classical OpenCV only (no deep learning) per project rules.
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field
+
+from lane_opencv import advisory_for_lane, analyze_lane_from_image_bytes
 
 
 class ContractModel(BaseModel):
@@ -29,10 +32,36 @@ class AnalyzeFrameRequest(ContractModel):
     capture_metadata: dict | None = Field(default=None, alias="captureMetadata")
 
 
+class LaneOverlayPoint(ContractModel):
+    x: int
+    y: int
+
+
+class LaneOverlaySegment(ContractModel):
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+
+
+class LaneOverlay(ContractModel):
+    width: int
+    height: int
+    roi: list[LaneOverlayPoint] | None = None
+    segments: list[LaneOverlaySegment] | None = None
+    left_boundary: list[LaneOverlaySegment] | None = Field(
+        default=None, alias="leftBoundary"
+    )
+    right_boundary: list[LaneOverlaySegment] | None = Field(
+        default=None, alias="rightBoundary"
+    )
+
+
 class LaneResult(ContractModel):
     detected: bool
     offset_norm: float | None = Field(default=None, alias="offsetNorm")
     confidence: float
+    overlay: LaneOverlay | None = None
 
 
 class Advisory(ContractModel):
@@ -85,16 +114,40 @@ def health() -> dict[str, str]:
 
 @app.post("/analyze-frame", response_model=AnalyzeFrameResponse)
 def analyze_frame(body: AnalyzeFrameRequest) -> AnalyzeFrameResponse:
-    """Stub: wire OpenCV lane pipeline here; keep messages calm and advisory."""
+    """Classical OpenCV lane cues on each frame — no GPS or speed required."""
     now = datetime.now(timezone.utc).isoformat()
+    try:
+        raw = base64.b64decode(body.image.data_base64, validate=True)
+    except (ValueError, TypeError):
+        return AnalyzeFrameResponse(
+            requestId=body.request_id,
+            processedAt=now,
+            lane=LaneResult(detected=False, offsetNorm=None, confidence=0.0),
+            advisory=Advisory(
+                message="We could not read that image — if it happens again, try a quick restart of the drive screen.",
+                severity="notice",
+            ),
+        )
+
+    est, overlay_dict = analyze_lane_from_image_bytes(raw)
+    msg, sev = advisory_for_lane(est)
+    overlay_model: LaneOverlay | None = None
+    if overlay_dict:
+        try:
+            overlay_model = LaneOverlay.model_validate(overlay_dict)
+        except Exception:
+            overlay_model = None
+
     return AnalyzeFrameResponse(
         requestId=body.request_id,
         processedAt=now,
-        lane=LaneResult(detected=False, offsetNorm=None, confidence=0.0),
-        advisory=Advisory(
-            message="RoadCopilot is getting ready—lane assist will appear when the road lines are visible.",
-            severity="info",
+        lane=LaneResult(
+            detected=est.detected,
+            offset_norm=est.offset_norm,
+            confidence=est.confidence,
+            overlay=overlay_model,
         ),
+        advisory=Advisory(message=msg, severity=sev),
     )
 
 

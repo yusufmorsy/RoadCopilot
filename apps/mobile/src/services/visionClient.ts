@@ -1,6 +1,9 @@
 import type {
   AnalyzeFrameRequest,
   AnalyzeFrameResponse,
+  LaneOverlay,
+  LaneOverlayPoint,
+  LaneOverlaySegment,
 } from "@roadcopilot/contracts";
 
 import { getVisionAnalyzeTimeoutMs, getVisionApiBaseUrl } from "../config/expoPublicEnv";
@@ -30,6 +33,93 @@ function isLaneAdvisorySeverity(
   return x === "info" || x === "notice" || x === "caution";
 }
 
+function parseLaneOverlayPoint(x: unknown): LaneOverlayPoint | null {
+  if (!isRecord(x)) return null;
+  if (typeof x.x !== "number" || typeof x.y !== "number") return null;
+  return { x: x.x, y: x.y };
+}
+
+function parseLaneOverlaySegment(x: unknown): LaneOverlaySegment | null {
+  if (!isRecord(x)) return null;
+  if (
+    typeof x.x1 !== "number" ||
+    typeof x.y1 !== "number" ||
+    typeof x.x2 !== "number" ||
+    typeof x.y2 !== "number"
+  ) {
+    return null;
+  }
+  return { x1: x.x1, y1: x.y1, x2: x.x2, y2: x.y2 };
+}
+
+function parseOptionalSegmentArray(
+  raw: unknown
+): LaneOverlaySegment[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const out: LaneOverlaySegment[] = [];
+  for (const item of raw) {
+    const seg = parseLaneOverlaySegment(item);
+    if (!seg) return undefined;
+    out.push(seg);
+  }
+  return out;
+}
+
+function parseOptionalPointArray(raw: unknown): LaneOverlayPoint[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (!Array.isArray(raw)) return undefined;
+  const out: LaneOverlayPoint[] = [];
+  for (const item of raw) {
+    const p = parseLaneOverlayPoint(item);
+    if (!p) return undefined;
+    out.push(p);
+  }
+  return out;
+}
+
+/** Accepts server `lane.overlay`; returns null if the object is present but ill-formed. */
+function parseLaneOverlay(x: unknown): LaneOverlay | null {
+  if (!isRecord(x)) return null;
+  if (typeof x.width !== "number" || typeof x.height !== "number") return null;
+  if (!Number.isFinite(x.width) || !Number.isFinite(x.height)) return null;
+  if (x.width < 1 || x.height < 1) return null;
+
+  const roi = parseOptionalPointArray(x.roi);
+  if (x.roi !== undefined && x.roi !== null && roi === undefined) return null;
+
+  const segments = parseOptionalSegmentArray(x.segments);
+  if (x.segments !== undefined && x.segments !== null && segments === undefined)
+    return null;
+
+  const leftBoundary = parseOptionalSegmentArray(x.leftBoundary);
+  if (
+    x.leftBoundary !== undefined &&
+    x.leftBoundary !== null &&
+    leftBoundary === undefined
+  ) {
+    return null;
+  }
+
+  const rightBoundary = parseOptionalSegmentArray(x.rightBoundary);
+  if (
+    x.rightBoundary !== undefined &&
+    x.rightBoundary !== null &&
+    rightBoundary === undefined
+  ) {
+    return null;
+  }
+
+  return {
+    width: x.width,
+    height: x.height,
+    ...(roi && roi.length > 0 ? { roi } : {}),
+    ...(segments && segments.length > 0 ? { segments } : {}),
+    ...(leftBoundary && leftBoundary.length > 0 ? { leftBoundary } : {}),
+    ...(rightBoundary && rightBoundary.length > 0 ? { rightBoundary } : {}),
+  };
+}
+
 /**
  * Best-effort runtime check; narrows to the contract shape for typing.
  */
@@ -56,6 +146,12 @@ export function parseAnalyzeFrameResponse(json: unknown): AnalyzeFrameResponse |
   const severity = advisory.severity;
   if (typeof message !== "string" || !isLaneAdvisorySeverity(severity)) return null;
 
+  let overlay: LaneOverlay | undefined;
+  if (lane.overlay !== undefined && lane.overlay !== null) {
+    const parsedOverlay = parseLaneOverlay(lane.overlay);
+    if (parsedOverlay) overlay = parsedOverlay;
+  }
+
   return {
     requestId,
     processedAt,
@@ -65,6 +161,7 @@ export function parseAnalyzeFrameResponse(json: unknown): AnalyzeFrameResponse |
       ...(offsetNorm === undefined || offsetNorm === null
         ? {}
         : { offsetNorm }),
+      ...(overlay ? { overlay } : {}),
     },
     advisory: { message, severity },
   };

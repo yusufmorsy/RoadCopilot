@@ -11,6 +11,7 @@ import { useRouteGuidanceVoice } from "../../hooks/useRouteGuidanceVoice";
 import { useTripSession } from "../../hooks/useTripSession";
 import { ActiveRouteMap } from "../routing/maps/ActiveRouteMap";
 import type { LaneDisplayStatus } from "../vision/laneStatus";
+import { laneStatusDriverLabel } from "../vision/laneStatus";
 import { LaneDriveScreen } from "../vision/LaneDriveScreen";
 import { useNavigationTrip } from "../navigation/NavigationTripContext";
 import type { RouteGuidanceStep } from "../navigation/types";
@@ -30,10 +31,12 @@ export function DriveTripScreen({
   const { trip: navTrip } = useNavigationTrip();
   const { state, startTrip, endTrip, resetTrip, addTripEvent } = useTripSession();
   const [motionOk, setMotionOk] = useState<boolean | null>(null);
+  const [laneUiStatus, setLaneUiStatus] = useState<LaneDisplayStatus>("unknown");
   const laneDriftRef = useRef(false);
 
-  const onLaneStatusForVoice = useCallback((s: LaneDisplayStatus) => {
+  const onLaneStatusChange = useCallback((s: LaneDisplayStatus) => {
     laneDriftRef.current = s === "drifting_left" || s === "drifting_right";
+    setLaneUiStatus(s);
   }, []);
 
   useRouteGuidanceVoice({
@@ -65,6 +68,7 @@ export function DriveTripScreen({
 
   const onStartTrip = useCallback(() => {
     if (!navTrip) return;
+    setLaneUiStatus("unknown");
     startTrip({
       routeModeLabel: navTrip.selectedRoute.label,
       routeOptionId: navTrip.selectedRoute.id,
@@ -213,7 +217,7 @@ export function DriveTripScreen({
       <View style={styles.lanePane}>
         <LaneDriveScreen
           layout="compact"
-          onLaneStatusChange={onLaneStatusForVoice}
+          onLaneStatusChange={onLaneStatusChange}
           tripLaneLog={{
             isActive: state.isActive,
             tripId: state.tripId,
@@ -230,6 +234,10 @@ export function DriveTripScreen({
           <Text style={styles.topSub} numberOfLines={1}>
             {navTrip.selectedRoute.label} · trip active
           </Text>
+          <View style={styles.laneRow} accessibilityLabel={`Lane status ${laneStatusDriverLabel(laneUiStatus)}`}>
+            <Text style={styles.laneRowKicker}>Lane (advisory)</Text>
+            <Text style={styles.laneRowValue}>{laneStatusDriverLabel(laneUiStatus)}</Text>
+          </View>
         </View>
         <Pressable
           style={({ pressed }) => [styles.endBtn, pressed && styles.pressed]}
@@ -249,7 +257,7 @@ const styles = StyleSheet.create({
   mapPane: { flex: 1, minHeight: 200 },
   lanePane: {
     flexShrink: 0,
-    maxHeight: 300,
+    maxHeight: 420,
     backgroundColor: "#000",
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
@@ -336,6 +344,25 @@ const styles = StyleSheet.create({
   },
   topDest: { color: "#fff", fontSize: 16, fontWeight: "700" },
   topSub: { color: "#cbd5e1", fontSize: 14, marginTop: 4 },
+  laneRow: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "rgba(255,255,255,0.35)",
+  },
+  laneRowKicker: {
+    color: "#94a3b8",
+    fontSize: 12,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  laneRowValue: {
+    color: "#f8fafc",
+    fontSize: 20,
+    fontWeight: "800",
+  },
   spaced: { marginTop: 10 },
   endBtn: {
     alignSelf: "flex-end",

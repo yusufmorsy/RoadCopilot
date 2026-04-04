@@ -14,7 +14,10 @@ import {
   logRoadCopilotVision,
   serializeUnknownError,
 } from "../../debug/visionCaptureDiagnostics";
-import { useFrameCapture } from "../../hooks/useFrameCapture";
+import {
+  type AnalyzeFrameOutcomeContext,
+  useFrameCapture,
+} from "../../hooks/useFrameCapture";
 import { useLaneAlerts } from "../../hooks/useLaneAlerts";
 import { newTripEventId } from "../sensors/newTripEventId";
 import {
@@ -22,12 +25,17 @@ import {
   isVisionApiConfigured,
   type AnalyzeFrameOutcome,
 } from "../../services/visionClient";
+import { LaneAnalysisOverlay } from "./components/LaneAnalysisOverlay";
 import { VisionStatusBar } from "./components/VisionStatusBar";
 import type { LaneDisplayStatus } from "./laneStatus";
 import {
   laneResponseToUiState,
+  laneStatusDriverLabel,
   laneStatusLabel,
 } from "./laneStatus";
+
+/** How often to repeat the same lane result in dev logs (ms) when status is unchanged. */
+const LANE_LOG_SNAPSHOT_INTERVAL_MS = 4000;
 
 /**
  * After each full cycle (photo + upload + response), wait this long before the next photo.
@@ -116,6 +124,12 @@ export function LaneDriveScreen({
   const [pictureSize, setPictureSize] = useState<string | undefined>();
   const [latestResponse, setLatestResponse] =
     useState<AnalyzeFrameResponse | null>(null);
+  /** JPEG dimensions for the frame that produced the current `latestResponse` (overlay mapping). */
+  const [analysisCaptureSize, setAnalysisCaptureSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
+  const [cameraLayout, setCameraLayout] = useState({ width: 0, height: 0 });
   const [backendOk, setBackendOk] = useState(true);
   const [backendDetail, setBackendDetail] = useState<string | null>(null);
   const [inFlight, setInFlight] = useState(false);
@@ -125,9 +139,34 @@ export function LaneDriveScreen({
     [latestResponse]
   );
 
+  const prevLaneStatusRef = useRef<LaneDisplayStatus | null>(null);
+  const lastLaneLogAtRef = useRef(0);
+
   useEffect(() => {
     onLaneStatusChange?.(laneUi.status);
   }, [laneUi.status, onLaneStatusChange]);
+
+  useEffect(() => {
+    if (!__DEV__ || !visionReady || !latestResponse) return;
+    const now = Date.now();
+    const statusChanged = prevLaneStatusRef.current !== laneUi.status;
+    prevLaneStatusRef.current = laneUi.status;
+    const periodic =
+      now - lastLaneLogAtRef.current >= LANE_LOG_SNAPSHOT_INTERVAL_MS;
+    if (!statusChanged && !periodic) return;
+    lastLaneLogAtRef.current = now;
+    logRoadCopilotVision(
+      statusChanged ? "lane_analysis_status_change" : "lane_analysis_snapshot",
+      {
+        result: laneStatusDriverLabel(laneUi.status),
+        status: laneUi.status,
+        detected: laneUi.detected,
+        confidence: Number(laneUi.confidence.toFixed(2)),
+        offsetNorm:
+          laneUi.offsetNorm === undefined ? null : Number(laneUi.offsetNorm.toFixed(3)),
+      }
+    );
+  }, [visionReady, latestResponse, laneUi]);
 
   const laneAlertsOn =
     laneAdvisoryEnabled && permission?.granted === true && cameraReady;
@@ -319,11 +358,22 @@ export function LaneDriveScreen({
     };
   }, [pictureSize]);
 
-  const onOutcome = useCallback((outcome: AnalyzeFrameOutcome) => {
+  const onOutcome = useCallback(
+    (outcome: AnalyzeFrameOutcome, context?: AnalyzeFrameOutcomeContext) => {
       if (outcome.ok) {
         setLatestResponse(outcome.data);
         setBackendOk(true);
         setBackendDetail(null);
+        const cw = context?.capture.width;
+        const ch = context?.capture.height;
+        if (
+          typeof cw === "number" &&
+          typeof ch === "number" &&
+          cw > 0 &&
+          ch > 0
+        ) {
+          setAnalysisCaptureSize({ width: cw, height: ch });
+        }
         return;
       }
       setBackendOk(false);
@@ -372,68 +422,110 @@ export function LaneDriveScreen({
 
   return (
     <View style={[styles.root, compact && styles.rootCompact]}>
-      <CameraView
-        ref={cameraRef}
+      <View
         style={[styles.camera, compact && styles.cameraCompact]}
-        facing="back"
-        mode="picture"
-        {...(pictureSize ? { pictureSize } : {})}
-        onCameraReady={handleCameraReady}
-        onMountError={(event) => {
-          logRoadCopilotVision("lane_camera_mount_error", {
-            message: event.message?.slice(0, 400),
-          });
-          setBackendOk(false);
-          setBackendDetail(event.message);
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setCameraLayout({ width, height });
         }}
-      />
+      >
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFillObject}
+          facing="back"
+          mode="picture"
+          {...(pictureSize ? { pictureSize } : {})}
+          onCameraReady={handleCameraReady}
+          onMountError={(event) => {
+            logRoadCopilotVision("lane_camera_mount_error", {
+              message: event.message?.slice(0, 400),
+            });
+            setBackendOk(false);
+            setBackendDetail(event.message);
+          }}
+        />
+        {visionReady && analysisCaptureSize ? (
+          <LaneAnalysisOverlay
+            overlay={latestResponse?.lane.overlay}
+            captureWidth={analysisCaptureSize.width}
+            captureHeight={analysisCaptureSize.height}
+            layoutWidth={cameraLayout.width}
+            layoutHeight={cameraLayout.height}
+          />
+        ) : null}
+      </View>
       <View style={[styles.overlay, compact && styles.overlayCompact]} pointerEvents="box-none">
         {compact ? (
           <Text style={styles.headingCompact}>Road view</Text>
         ) : (
           <Text style={styles.heading}>Road view</Text>
         )}
-        <VisionStatusBar
-          cameraLive={cameraReady}
-          permissionGranted
-          backendOk={visionReady && backendOk}
-          backendMessage={
-            visionReady ? backendDetail : "Set EXPO_PUBLIC_VISION_API_URL in apps/mobile/.env"
-          }
-          inFlight={visionReady && inFlight}
-          compact={compact}
-        />
         {!visionReady ? (
           <Text style={[styles.configBanner, compact && styles.configBannerCompact]}>
             Lane analysis needs a vision server URL. Add EXPO_PUBLIC_VISION_API_URL to apps/mobile/.env
             (see .env.example), then restart Expo.
           </Text>
         ) : null}
-        <View style={[styles.laneCard, compact && styles.laneCardCompact]}>
-          <Text style={[styles.laneTitle, compact && styles.laneTitleCompact]}>Lane position</Text>
-          <Text
-            style={[styles.laneValue, compact && styles.laneValueCompact]}
-            accessibilityLiveRegion="polite"
-          >
-            {laneStatusLabel(laneUi.status)}
-          </Text>
-          <Text style={[styles.laneMeta, compact && styles.laneMetaCompact]}>
-            {laneUi.detected
-              ? `Confidence ${Math.round(laneUi.confidence * 100)}%`
-              : "Waiting for clear lane lines"}
-          </Text>
-          {laneUi.offsetNorm !== undefined ? (
-            <Text style={[styles.laneMeta, compact && styles.laneMetaCompact]}>
-              Offset {laneUi.offsetNorm > 0 ? "right" : "left"} (
-              {laneUi.offsetNorm.toFixed(2)})
-            </Text>
-          ) : null}
-          {latestResponse?.advisory?.message ? (
-            <Text style={[styles.advisory, compact && styles.advisoryCompact]}>
-              {latestResponse.advisory.message}
-            </Text>
-          ) : null}
-        </View>
+        {(() => {
+          const laneCardEl = (
+            <View style={[styles.laneCard, compact && styles.laneCardCompact]} key="lane-card">
+              <Text style={[styles.laneTitle, compact && styles.laneTitleCompact]}>Lane analysis</Text>
+              <Text
+                style={[styles.laneValue, compact && styles.laneValueCompact]}
+                accessibilityRole="header"
+                accessibilityLiveRegion="polite"
+              >
+                {laneStatusDriverLabel(laneUi.status)}
+              </Text>
+              <Text style={[styles.laneMeta, compact && styles.laneMetaCompact]}>
+                {laneStatusLabel(laneUi.status)}
+                {" · "}
+                {laneUi.detected
+                  ? `confidence ${Math.round(laneUi.confidence * 100)}%`
+                  : "no clear lane read this frame"}
+              </Text>
+              {laneUi.offsetNorm !== undefined ? (
+                <Text style={[styles.laneMeta, compact && styles.laneMetaCompact]}>
+                  Lateral offset {laneUi.offsetNorm > 0 ? "right" : "left"} of center (
+                  {laneUi.offsetNorm.toFixed(2)})
+                </Text>
+              ) : null}
+              {latestResponse?.advisory?.message ? (
+                <Text
+                  style={[styles.advisory, compact && styles.advisoryCompact]}
+                  numberOfLines={compact ? 4 : undefined}
+                >
+                  {latestResponse.advisory.message}
+                </Text>
+              ) : null}
+            </View>
+          );
+          const statusEl = (
+            <VisionStatusBar
+              key="vision-status"
+              cameraLive={cameraReady}
+              permissionGranted
+              backendOk={visionReady && backendOk}
+              backendMessage={
+                visionReady ? backendDetail : "Set EXPO_PUBLIC_VISION_API_URL in apps/mobile/.env"
+              }
+              inFlight={visionReady && inFlight}
+              compact={compact}
+            />
+          );
+          /* Fullscreen: flex-end stacks last child toward bottom — keep status above lane card. */
+          return compact ? (
+            <>
+              {laneCardEl}
+              {statusEl}
+            </>
+          ) : (
+            <>
+              {statusEl}
+              {laneCardEl}
+            </>
+          );
+        })()}
         {__DEV__ && visionReady ? (
           <Text style={[styles.hint, compact && styles.hintCompact]}>
             Vision API: {getVisionApiBaseUrl()}

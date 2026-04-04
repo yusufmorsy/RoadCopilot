@@ -12,6 +12,11 @@ import {
 
 export type CaptureDimensions = { width: number; height: number };
 
+/** Present when a still was decoded; use with successful outcomes to align CV overlay with the preview. */
+export type AnalyzeFrameOutcomeContext = {
+  capture: CaptureDimensions;
+};
+
 export type UseFrameCaptureOptions = {
   enabled: boolean;
   /** Wait until camera reports ready before ticking. */
@@ -21,7 +26,10 @@ export type UseFrameCaptureOptions = {
   captureFrame: () => Promise<
     { base64: string } & CaptureDimensions | null | undefined
   >;
-  onOutcome: (outcome: AnalyzeFrameOutcome) => void;
+  onOutcome: (
+    outcome: AnalyzeFrameOutcome,
+    context?: AnalyzeFrameOutcomeContext
+  ) => void;
   /** Fired when a capture+network round-trip starts or ends (for UI status). */
   onInFlightChange?: (inFlight: boolean) => void;
 };
@@ -108,11 +116,14 @@ export function useFrameCapture(options: UseFrameCaptureOptions): void {
             e instanceof Error && e.message
               ? ` ${e.message.slice(0, 140)}${e.message.length > 140 ? "…" : ""}`
               : "";
-          onOutcomeRef.current({
-            ok: false,
-            kind: "validation",
-            message: `Could not capture a photo.${detail}`,
-          });
+          onOutcomeRef.current(
+            {
+              ok: false,
+              kind: "validation",
+              message: `Could not capture a photo.${detail}`,
+            },
+            undefined
+          );
           return;
         }
 
@@ -135,11 +146,14 @@ export function useFrameCapture(options: UseFrameCaptureOptions): void {
               height: shot.height ?? null,
             });
           }
-          onOutcomeRef.current({
-            ok: false,
-            kind: "validation",
-            message: "Could not read a frame from the camera.",
-          });
+          onOutcomeRef.current(
+            {
+              ok: false,
+              kind: "validation",
+              message: "Could not read a frame from the camera.",
+            },
+            undefined
+          );
           return;
         }
 
@@ -182,7 +196,10 @@ export function useFrameCapture(options: UseFrameCaptureOptions): void {
           ...(!outcome.ok ? { messagePreview: outcome.message.slice(0, 120) } : {}),
         });
         if (cancelled) return;
-        onOutcomeRef.current(outcome);
+        const captureContext: AnalyzeFrameOutcomeContext = {
+          capture: { width: shot.width, height: shot.height },
+        };
+        onOutcomeRef.current(outcome, captureContext);
       } catch (e) {
         if (cancelled) return;
         logRoadCopilotVision("lane_frame_loop_unexpected", {
@@ -194,11 +211,14 @@ export function useFrameCapture(options: UseFrameCaptureOptions): void {
           e instanceof Error && e.message
             ? ` ${e.message.slice(0, 140)}${e.message.length > 140 ? "…" : ""}`
             : "";
-        onOutcomeRef.current({
-          ok: false,
-          kind: "network",
-          message: `Something went wrong while sending a frame.${detail}`,
-        });
+        onOutcomeRef.current(
+          {
+            ok: false,
+            kind: "network",
+            message: `Something went wrong while sending a frame.${detail}`,
+          },
+          undefined
+        );
       } finally {
         onInFlightChangeRef.current?.(false);
         if (!cancelled) schedule(intervalMs, cycleRef.current);

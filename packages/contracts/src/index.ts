@@ -3,6 +3,9 @@ export type {
   AnalyzeFrameResponse,
   ImagePayload,
   LaneAdvisorySeverity,
+  LaneOverlay,
+  LaneOverlayPoint,
+  LaneOverlaySegment,
 } from "./analyze-frame.js";
 export type {
   AnalyzeVideoReplayRequest,
