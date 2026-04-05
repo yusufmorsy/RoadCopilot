@@ -3,6 +3,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -202,6 +203,30 @@ export function LaneDriveScreen({
       }
     };
   }, []);
+
+  const autoCameraRequestRef = useRef(false);
+
+  // When status is still `undetermined`, nothing is wrong yet — but iOS only shows the system sheet
+  // after the native permission API runs. Request once on mount so drivers are not stuck behind an
+  // extra in-app tap (and logs stay on `undetermined` / `permissionGranted: false` until they answer).
+  useEffect(() => {
+    if (!permission || permission.granted) return;
+    const st =
+      typeof permission === "object" && "status" in permission
+        ? (permission as { status?: string }).status
+        : undefined;
+    if (st !== "undetermined") return;
+    if (autoCameraRequestRef.current) return;
+    autoCameraRequestRef.current = true;
+    void (async () => {
+      try {
+        await requestPermission();
+      } catch (e) {
+        autoCameraRequestRef.current = false;
+        logRoadCopilotVision("lane_camera_auto_request_failed", serializeUnknownError(e));
+      }
+    })();
+  }, [permission, requestPermission]);
 
   const frameLoopEnabled =
     permission?.granted === true && visionReady && pictureSizeProbeDone;
@@ -420,64 +445,106 @@ export function LaneDriveScreen({
     onInFlightChange: setInFlight,
   });
 
+  const permissionGateStyle = compact ? styles.centeredInStrip : styles.centered;
+
   if (!permission) {
     return (
-      <View style={styles.centered}>
+      <View style={permissionGateStyle}>
         <ActivityIndicator size="large" color="#1a237e" />
-        <Text style={styles.body}>Checking camera permission…</Text>
+        <Text style={compact ? styles.bodyCompact : styles.body}>
+          Checking camera permission…
+        </Text>
       </View>
     );
   }
 
   if (!permission.granted) {
+    const canAskAgain =
+      "canAskAgain" in permission ? Boolean(permission.canAskAgain) : true;
     return (
-      <View style={styles.centered}>
-        <Text style={styles.title}>Camera</Text>
-        <Text style={styles.body}>
+      <View style={permissionGateStyle}>
+        <Text style={compact ? styles.titleCompact : styles.title}>Camera</Text>
+        <Text style={compact ? styles.bodyCompact : styles.body}>
           RoadCopilot uses the back camera to gently read lane position. Nothing
           is recorded unless you choose to save a trip later.
         </Text>
-        <Pressable
-          style={styles.primaryButton}
-          onPress={() => {
-            void (async () => {
-              agentDebugLog(
-                "LaneDriveScreen.tsx:requestPermission",
-                "before_requestPermission",
-                "H1",
-                {}
-              );
-              try {
-                const result = await requestPermission();
+        {canAskAgain ? (
+          <Pressable
+            style={compact ? styles.primaryButtonCompact : styles.primaryButton}
+            onPress={() => {
+              void (async () => {
                 agentDebugLog(
                   "LaneDriveScreen.tsx:requestPermission",
-                  "after_requestPermission",
+                  "before_requestPermission",
                   "H1",
-                  {
-                    granted: result?.granted ?? null,
-                    status:
-                      result &&
-                      typeof result === "object" &&
-                      "status" in result
-                        ? String((result as { status?: string }).status)
-                        : null,
-                  }
+                  {}
                 );
-              } catch (e) {
-                agentDebugLog(
-                  "LaneDriveScreen.tsx:requestPermission",
-                  "requestPermission_threw",
-                  "H1",
-                  serializeUnknownError(e)
-                );
+                try {
+                  const result = await requestPermission();
+                  agentDebugLog(
+                    "LaneDriveScreen.tsx:requestPermission",
+                    "after_requestPermission",
+                    "H1",
+                    {
+                      granted: result?.granted ?? null,
+                      status:
+                        result &&
+                        typeof result === "object" &&
+                        "status" in result
+                          ? String((result as { status?: string }).status)
+                          : null,
+                    }
+                  );
+                } catch (e) {
+                  agentDebugLog(
+                    "LaneDriveScreen.tsx:requestPermission",
+                    "requestPermission_threw",
+                    "H1",
+                    serializeUnknownError(e)
+                  );
+                }
+              })();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Allow camera access"
+          >
+            <Text
+              style={
+                compact ? styles.primaryButtonTextCompact : styles.primaryButtonText
               }
-            })();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Allow camera access"
-        >
-          <Text style={styles.primaryButtonText}>Allow camera</Text>
-        </Pressable>
+            >
+              Allow camera
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={compact ? styles.bodyCompact : styles.body}>
+            Camera access was turned off for RoadCopilot. Enable it in Settings to use lane
+            awareness.
+          </Text>
+        )}
+        {!canAskAgain ? (
+          <Pressable
+            style={[
+              compact ? styles.secondaryButtonCompact : styles.secondaryButton,
+              { marginTop: 12 },
+            ]}
+            onPress={() => {
+              void Linking.openSettings();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Open app settings"
+          >
+            <Text
+              style={
+                compact
+                  ? styles.secondaryButtonTextCompact
+                  : styles.secondaryButtonText
+              }
+            >
+              Open Settings
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -758,11 +825,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 28,
   },
+  /**
+   * Embedded under the map: parent `lanePane` has no fixed height. `flex: 1` alone collapses to
+   * zero here, so the system permission prompt never appears. Keep a minimum height so the gate
+   * UI and `requestPermission()` path stay reachable.
+   */
+  centeredInStrip: {
+    width: "100%",
+    minHeight: 240,
+    flexGrow: 1,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+  },
   title: {
     fontSize: 28,
     fontWeight: "800",
     marginBottom: 16,
     color: "#1a1a1a",
+  },
+  titleCompact: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 10,
+    color: "#1a1a1a",
+    textAlign: "center",
   },
   body: {
     fontSize: 20,
@@ -770,6 +859,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#222",
     marginBottom: 24,
+  },
+  bodyCompact: {
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: "center",
+    color: "#222",
+    marginBottom: 16,
   },
   primaryButton: {
     backgroundColor: "#1a237e",
@@ -779,9 +875,50 @@ const styles = StyleSheet.create({
     minWidth: 220,
     alignItems: "center",
   },
+  primaryButtonCompact: {
+    backgroundColor: "#1a237e",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    minWidth: 180,
+    alignItems: "center",
+  },
   primaryButtonText: {
     color: "#fff",
     fontSize: 22,
+    fontWeight: "700",
+  },
+  primaryButtonTextCompact: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  secondaryButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#1a237e",
+    minWidth: 220,
+    alignItems: "center",
+  },
+  secondaryButtonCompact: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#1a237e",
+    minWidth: 180,
+    alignItems: "center",
+  },
+  secondaryButtonText: {
+    color: "#1a237e",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  secondaryButtonTextCompact: {
+    color: "#1a237e",
+    fontSize: 15,
     fontWeight: "700",
   },
 });

@@ -10,10 +10,21 @@ const path = require("path");
 // (`.env` is gitignored and is not uploaded).
 require("dotenv").config({ path: path.resolve(__dirname, ".env") });
 
+const CAMERA_USAGE =
+  "RoadCopilot uses the camera to read lane position on the road ahead and help you stay comfortably centered. Video is not uploaded unless you choose to share it later.";
+
 module.exports = ({ config }) => {
   const apiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
   return {
     ...config,
+    ios: {
+      ...config.ios,
+      infoPlist: {
+        ...config.ios?.infoPlist,
+        // Required for the system prompt and for Camera to appear under Settings; keep in sync with expo-camera plugin.
+        NSCameraUsageDescription: CAMERA_USAGE,
+      },
+    },
     android: {
       ...config.android,
       config: {

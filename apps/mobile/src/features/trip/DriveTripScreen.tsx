@@ -186,6 +186,22 @@ export function DriveTripScreen({
             Starting logs gentle motion moments on this phone and optional lane cues — all advisory.
           </Text>
         )}
+        <Text style={styles.cameraPrestartHint}>
+          Allow camera access below before you drive so lane cues can see the road. If you use Expo Go,
+          enable Camera for the Expo Go app in Settings.
+        </Text>
+        <View style={styles.preStartCameraMount} accessibilityLabel="Lane camera setup">
+          <LaneDriveScreen
+            layout="compact"
+            laneAdvisoryEnabled={false}
+            onLaneStatusChange={onLaneStatusChange}
+            tripLaneLog={{
+              isActive: false,
+              tripId: state.tripId,
+              addTripEvent,
+            }}
+          />
+        </View>
         <Pressable
           style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
           onPress={onStartTrip}
@@ -257,6 +273,7 @@ const styles = StyleSheet.create({
   mapPane: { flex: 1, minHeight: 200 },
   lanePane: {
     flexShrink: 0,
+    minHeight: 200,
     maxHeight: 420,
     backgroundColor: "#000",
     borderTopLeftRadius: 16,
@@ -298,7 +315,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: "#6b7280",
-    marginBottom: 20,
+    marginBottom: 12,
+  },
+  cameraPrestartHint: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#4b5563",
+    marginBottom: 8,
+  },
+  preStartCameraMount: {
+    width: "100%",
+    minHeight: 248,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#000",
   },
   warn: {
     fontSize: 15,

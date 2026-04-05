@@ -17,6 +17,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.roadcopilot.app",
       "infoPlist": {
+        "NSCameraUsageDescription": "RoadCopilot uses the camera to read lane position on the road ahead and help you stay comfortably centered. Video is not uploaded unless you choose to share it later.",
         "NSMotionUsageDescription": "RoadCopilot uses motion sensors on this phone to notice firmer slowdowns, quicker accelerations, and sharper turns during a trip — only to build a calm, on-device summary for family. It does not control the vehicle.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
