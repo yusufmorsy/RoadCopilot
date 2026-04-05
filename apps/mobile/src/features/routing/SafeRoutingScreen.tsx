@@ -166,6 +166,14 @@ export function SafeRoutingScreen({ onContinueToDrive }: SafeRoutingScreenProps 
             {" · "}
             {planned.formattedDestination}
           </Text>
+          {!planned.usedLiveGoogle ? (
+            <Text style={styles.demoMapNote}>
+              Offline demo routes: no Google key in this JavaScript bundle. Add
+              EXPO_PUBLIC_GOOGLE_MAPS_API_KEY under Expo project environment variables, then run eas
+              update or eas build. Expo Go with Metro loads apps/mobile/.env from your computer
+              automatically.
+            </Text>
+          ) : null}
           {origin ? (
             <RouteComparisonMap
               origin={origin}
@@ -315,6 +323,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#6b7280",
     marginBottom: 12,
+  },
+  demoMapNote: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#92400e",
+    backgroundColor: "#fffbeb",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#fcd34d",
   },
   secondaryButton: {
     marginTop: 4,

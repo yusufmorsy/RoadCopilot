@@ -1,6 +1,13 @@
 /**
- * Expo inlines `EXPO_PUBLIC_*` at bundle time from `apps/mobile/.env`.
- * Copy `.env.example` → `.env` and fill values (`.env` is gitignored).
+ * Expo replaces `process.env.EXPO_PUBLIC_*` when the **JavaScript bundle** is produced.
+ *
+ * - **`npx expo start` (Expo Go / dev client + Metro):** reads `apps/mobile/.env` automatically.
+ * - **EAS Update or an install that does not use your Metro server:** the bundle was built on EAS
+ *   (or embedded at build time) — add the same variables under Project → Environment variables on
+ *   expo.dev, then run `eas update` or `eas build` again. A local `.env` on your laptop is not
+ *   sent to EAS servers.
+ *
+ * Copy `.env.example` → `.env` for local development (`.env` is gitignored).
  */
 
 export type PlanFallbackOrigin = {

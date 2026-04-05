@@ -121,7 +121,7 @@ export async function planRouteOptionsFromDestinationText(params: {
       latitude: params.origin.latitude + 0.04,
       longitude: params.origin.longitude + 0.04,
     };
-    const options = buildMockRouteOptions(destLabel, fakeDest).map((opt, i) => {
+    const options = buildMockRouteOptions(destLabel, params.origin, fakeDest).map((opt, i) => {
       if (i === 0) {
         return { ...opt, rationale: prefixDestinationNote(destLabel, opt.rationale) };
       }

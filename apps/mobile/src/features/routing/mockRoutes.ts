@@ -1,5 +1,6 @@
 import type { RouteOption, RouteSafetyLabel } from "@roadcopilot/contracts";
 import type { LatLng, ParsedGoogleRoute } from "../../services/googleRoutesClient";
+import { encodePolyline } from "./decodePolyline";
 import {
   buildFastestRationale,
   buildSaferRationale,
@@ -8,9 +9,13 @@ import {
   summarizeRouteHeuristics,
 } from "./safeRouteHeuristics";
 
-/** Distinct placeholder polylines so comparison treats them as different paths (demo only). */
-const DEMO_POLYLINE_FAST = "_p~iF~ps|U_ulLnnqC_mqNvxq`@";
-const DEMO_POLYLINE_SAFER = "_ekiF~py|U_ukLnnqC_mqNvxq`@";
+/** Slight detour so safer mock path differs from straight-line fastest in previews. */
+function mockSaferMidpoint(origin: LatLng, destination: LatLng): LatLng {
+  return {
+    latitude: (origin.latitude + destination.latitude) / 2 + 0.006,
+    longitude: (origin.longitude + destination.longitude) / 2 - 0.004,
+  };
+}
 
 function toParsedFromSynthetic(params: {
   distanceMeters: number;
@@ -65,15 +70,31 @@ function toRouteOption(
 
 /**
  * Offline / no-key demo: believable Fastest vs Safer with visible reasoning.
+ * Geometry is encoded from `origin` → `destination` so the map matches the markers (no fixed demo path).
  */
-export function buildMockRouteOptions(destinationLabel: string, _destination: LatLng): RouteOption[] {
+export function buildMockRouteOptions(
+  destinationLabel: string,
+  origin: LatLng,
+  destination: LatLng
+): RouteOption[] {
+  const mid = mockSaferMidpoint(origin, destination);
+  const polyFast = encodePolyline([
+    { latitude: origin.latitude, longitude: origin.longitude },
+    { latitude: destination.latitude, longitude: destination.longitude },
+  ]);
+  const polySafer = encodePolyline([
+    { latitude: origin.latitude, longitude: origin.longitude },
+    { latitude: mid.latitude, longitude: mid.longitude },
+    { latitude: destination.latitude, longitude: destination.longitude },
+  ]);
+
   const fastestParsed = toParsedFromSynthetic({
     distanceMeters: 18200,
     durationSeconds: 22 * 60,
     leftTurns: 5,
     steps: 32,
     avoidHighways: false,
-    encodedPolyline: DEMO_POLYLINE_FAST,
+    encodedPolyline: polyFast,
     mergeAt: [3, 18],
     roundaboutAt: [11],
   });
@@ -83,7 +104,7 @@ export function buildMockRouteOptions(destinationLabel: string, _destination: La
     leftTurns: 2,
     steps: 26,
     avoidHighways: true,
-    encodedPolyline: DEMO_POLYLINE_SAFER,
+    encodedPolyline: polySafer,
   });
 
   const fastH = summarizeRouteHeuristics(fastestParsed);

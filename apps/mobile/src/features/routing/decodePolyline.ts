@@ -7,6 +7,37 @@ export type MapCoordinate = { latitude: number; longitude: number };
  * Decodes a Google-encoded polyline string into latitude/longitude points.
  * @see https://developers.google.com/maps/documentation/utilities/polylinealgorithm
  */
+/** Encodes a single signed delta for Google's polyline format (scaled ×1e5 integers). */
+function encodeSignedDelta(delta: number): string {
+  let v = delta < 0 ? ~(delta << 1) : delta << 1;
+  let out = "";
+  while (v >= 0x20) {
+    out += String.fromCharCode((0x20 | (v & 0x1f)) + 63);
+    v >>= 5;
+  }
+  out += String.fromCharCode(v + 63);
+  return out;
+}
+
+/** Encodes latitude/longitude points as a Google-encoded polyline string. */
+export function encodePolyline(points: MapCoordinate[]): string {
+  if (!points.length) return "";
+  let prevLatE5 = 0;
+  let prevLngE5 = 0;
+  let encoded = "";
+  for (const p of points) {
+    const latE5 = Math.round(p.latitude * 1e5);
+    const lngE5 = Math.round(p.longitude * 1e5);
+    const dLat = latE5 - prevLatE5;
+    const dLng = lngE5 - prevLngE5;
+    prevLatE5 = latE5;
+    prevLngE5 = lngE5;
+    encoded += encodeSignedDelta(dLat);
+    encoded += encodeSignedDelta(dLng);
+  }
+  return encoded;
+}
+
 export function decodePolyline(encoded: string): MapCoordinate[] {
   if (!encoded || typeof encoded !== "string") return [];
 
