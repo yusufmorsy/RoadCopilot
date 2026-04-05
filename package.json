@@ -1,6 +1,7 @@
 {
   "name": "roadcopilot",
   "private": true,
+  "main": "apps/mobile/index.js",
   "workspaces": [
     "apps/*",
     "packages/*"
