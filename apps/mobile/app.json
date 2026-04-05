@@ -4,9 +4,7 @@
     "slug": "roadcopilot",
     "scheme": "roadcopilot",
     "version": "0.0.1",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "0.0.1",
     "updates": {
       "url": "https://u.expo.dev/a09f2fab-88d2-4a10-b2aa-f75967d62080"
     },
