@@ -2,7 +2,14 @@
   "expo": {
     "name": "RoadCopilot",
     "slug": "roadcopilot",
+    "scheme": "roadcopilot",
     "version": "0.0.1",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a09f2fab-88d2-4a10-b2aa-f75967d62080"
+    },
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "assetBundlePatterns": [
@@ -15,7 +22,8 @@
         "NSMotionUsageDescription": "RoadCopilot uses motion sensors on this phone to notice firmer slowdowns, quicker accelerations, and sharper turns during a trip — only to build a calm, on-device summary for family. It does not control the vehicle.",
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -45,6 +53,11 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a09f2fab-88d2-4a10-b2aa-f75967d62080"
+      }
     }
   }
 }
